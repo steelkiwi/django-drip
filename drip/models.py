@@ -81,7 +81,7 @@ class SentDrip(models.Model):
     user = models.ForeignKey(getattr(settings, 'AUTH_USER_MODEL', 'auth.User'), related_name='sent_drips')
 
     subject = models.TextField()
-    body = models.TextField()
+    #body = models.TextField()
     from_email = models.EmailField(
         null=True, default=None # For south so that it can migrate existing rows.
     )
