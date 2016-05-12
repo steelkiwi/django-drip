@@ -6,6 +6,7 @@ from django.conf import settings
 from django.utils.functional import cached_property
 
 from drip.utils import get_user_model
+from drip.querysets import DripQueryset
 
 # just using this to parse, but totally insane package naming...
 # https://bitbucket.org/schinckel/django-timedelta-field/
@@ -47,11 +48,10 @@ class Drip(models.Model):
                                      blank=True,
                                      default='default')
 
-    @property
-    def drip(self):
-        from drip.drips import DripBase
+    objects = DripQueryset.as_manager()
 
-        drip = DripBase(
+    def init_drip(self, klass):
+        drip = klass(
             drip_model=self,
             name=self.name,
             from_email=self.from_email if self.from_email else None,
@@ -59,6 +59,16 @@ class Drip(models.Model):
             subject_template=self.subject_template if self.subject_template else None,
             body_template=self.body_html_template if self.body_html_template else None)
         return drip
+
+    @property
+    def drip(self):
+        from drip.drips import DripBase
+        return self.init_drip(klass=DripBase)
+
+    @property
+    def drip_mailgun(self):
+        from drip.drips import DripMailgun
+        return self.init_drip(klass=DripMailgun)
 
     def __unicode__(self):
         return self.name
