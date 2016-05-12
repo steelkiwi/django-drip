@@ -10,6 +10,7 @@ from django.utils.html import strip_tags
 
 from drip.models import SentDrip
 from drip.utils import get_user_model
+from drip import mailgun
 
 try:
     from django.utils.timezone import now as conditional_now
@@ -80,15 +81,19 @@ class DripMessage(object):
         return self._plain
 
     @property
+    def from_(self):
+        if self.drip_base.from_email_name:
+            from_ = "%s <%s>" % (self.drip_base.from_email_name, self.drip_base.from_email)
+        else:
+            from_ = self.drip_base.from_email
+        return from_
+
+    @property
     def message(self):
         if not self._message:
-            if self.drip_base.from_email_name:
-                from_ = "%s <%s>" % (self.drip_base.from_email_name, self.drip_base.from_email)
-            else:
-                from_ = self.drip_base.from_email
 
             self._message = EmailMultiAlternatives(
-                self.subject, self.plain, from_, [self.user.email])
+                self.subject, self.plain, self.from_, [self.user.email])
 
             # check if there are html tags in the rendered template
             if len(self.plain) != len(self.body):
@@ -260,3 +265,52 @@ class DripBase(object):
         """
         User = get_user_model()
         return User.objects
+
+
+class MailgunBatchMessage(DripMessage):
+
+    def __init__(self, drip_base):
+        super(MailgunBatchMessage, self).__init__(drip_base=drip_base,
+                                                  user=None)
+
+    @property
+    def context(self):
+        if not self._context:
+            self._context = Context({v: ('%' + v + '%')
+                                     for v in self.drip_base.variables})
+        return self._context
+
+    @classmethod
+    def mailgun_variables_for_user(cls, user):
+        return {'username': user.full_name}
+
+    @classmethod
+    def get_variables(cls, qs):
+        recipient_variables_dict = {u.email: cls.mailgun_variables_for_user(u)
+                                    for u in qs
+                                    if u.email}
+        return recipient_variables_dict
+
+
+class DripMailgun(DripBase):
+    variables = ['username']
+    MAILGUN_API_KEY = settings.MAILGUN_API_KEY
+    MAILGUN_DOMAIN = settings.MAILGUN_DOMAIN
+    MAILGUN_BATCHSIZE = getattr(settings, 'MAILGUN_BATCHSIZE', 30)
+
+    def send(self):
+        if not self.from_email:
+            self.from_email = getattr(settings, 'DRIP_FROM_EMAIL',
+                                      settings.DEFAULT_FROM_EMAIL)
+        m = MailgunBatchMessage(self)
+
+        mailgun.send_batch(
+            subject=m.subject,
+            template_html=m.body,
+            template_plain=m.plain,
+            recipient_variables_dict=m.get_variables(self.get_queryset()),
+            from_email=m.from_,
+            mailgun_api_key=self.MAILGUN_API_KEY,
+            mailgun_domain=self.MAILGUN_DOMAIN,
+            mailgun_batchsize=self.MAILGUN_BATCHSIZE,
+        )
