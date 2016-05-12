@@ -1,7 +1,6 @@
 import sys
 
 from django.db import models
-from django.db.models import ForeignKey, OneToOneField, ManyToManyField
 # try:
 #    from django.db.models.related import RelatedObject
 # except:
@@ -45,7 +44,7 @@ def get_fields(Model,
         app_label, model_name = Model.split('.')
         Model = models.get_model(app_label, model_name)
 
-    #fields = Model._meta.fields + Model._meta.many_to_many + tuple(Model._meta.get_all_related_objects())
+    # fields = Model._meta.fields + Model._meta.many_to_many + tuple(Model._meta.get_all_related_objects())
     fields = Model._meta.get_fields()
     model_stack.append(Model)
 
@@ -66,7 +65,7 @@ def get_fields(Model,
             stop_recursion = True
 
     if stop_recursion:
-        return [] # give empty list for "extend"
+        return []  # give empty list for "extend"
 
     for field in fields:
         field_name = field.name
@@ -114,6 +113,7 @@ def get_fields(Model,
 
     return out_fields
 
+
 def give_model_field(full_field, Model):
     """
     Given a field_name and Model:
@@ -130,8 +130,10 @@ def give_model_field(full_field, Model):
 
     raise Exception('Field key `{0}` not found on `{1}`.'.format(full_field, Model.__name__))
 
+
 def get_simple_fields(Model, **kwargs):
     return [[f[0], f[3].__name__] for f in get_fields(Model, **kwargs)]
+
 
 def get_user_model():
     # handle 1.7 and back

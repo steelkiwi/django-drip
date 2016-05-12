@@ -124,10 +124,9 @@ class DripBase(object):
 
         self.now_shift_kwargs = kwargs.get('now_shift_kwargs', {})
 
-
-    #########################
-    ### DATE MANIPULATION ###
-    #########################
+    ##########################
+    # ## DATE MANIPULATION ###
+    ##########################
 
     def now(self):
         """
@@ -179,9 +178,9 @@ class DripBase(object):
 
         return qs
 
-    ##################
-    ### MANAGEMENT ###
-    ##################
+    ###################
+    # ## MANAGEMENT ###
+    ###################
 
     def get_queryset(self):
         try:
@@ -239,7 +238,7 @@ class DripBase(object):
                         from_email=self.from_email,
                         from_email_name=self.from_email_name,
                         subject=message_instance.subject,
-                        #body=message_instance.body
+                        # body=message_instance.body
                     )
                     count += 1
             except Exception as e:
@@ -247,10 +246,9 @@ class DripBase(object):
 
         return count
 
-
-    ####################
-    ### USER DEFINED ###
-    ####################
+    #####################
+    # ## USER DEFINED ###
+    #####################
 
     def queryset(self):
         """

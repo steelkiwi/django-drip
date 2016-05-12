@@ -1,4 +1,3 @@
-import base64
 import json
 
 from django import forms
@@ -21,6 +20,7 @@ class DripForm(forms.ModelForm):
     message_class = forms.ChoiceField(
         choices=((k, '%s (%s)' % (k, v)) for k, v in configured_message_classes().items())
     )
+
     class Meta:
         model = Drip
         exclude = []
@@ -34,7 +34,9 @@ class DripAdmin(admin.ModelAdmin):
     ]
     form = DripForm
 
-    av = lambda self, view: self.admin_site.admin_view(view)
+    def av(self, view):
+        return self.admin_site.admin_view(view)
+
     def timeline(self, request, drip_id, into_past, into_future):
         """
         Return a list of people who should get emails.
@@ -56,7 +58,7 @@ class DripAdmin(admin.ModelAdmin):
         return render(request, 'drip/timeline.html', locals())
 
     def view_drip_email(self, request, drip_id, into_past, into_future, user_id):
-        from django.shortcuts import render, get_object_or_404
+        from django.shortcuts import get_object_or_404
         from django.http import HttpResponse
         drip = get_object_or_404(Drip, id=drip_id)
         User = get_user_model()
@@ -94,18 +96,14 @@ class DripAdmin(admin.ModelAdmin):
     def get_urls(self):
         from django.conf.urls import patterns, url
         urls = super(DripAdmin, self).get_urls()
-        my_urls = patterns('',
-            url(
-                r'^(?P<drip_id>[\d]+)/timeline/(?P<into_past>[\d]+)/(?P<into_future>[\d]+)/$',
+        my_urls = patterns(
+            '',
+            url(r'^(?P<drip_id>[\d]+)/timeline/(?P<into_past>[\d]+)/(?P<into_future>[\d]+)/$',
                 self.av(self.timeline),
-                name='drip_timeline'
-            ),
-            url(
-                r'^(?P<drip_id>[\d]+)/timeline/(?P<into_past>[\d]+)/(?P<into_future>[\d]+)/(?P<user_id>[\d]+)/$',
+                name='drip_timeline'),
+            url(r'^(?P<drip_id>[\d]+)/timeline/(?P<into_past>[\d]+)/(?P<into_future>[\d]+)/(?P<user_id>[\d]+)/$',
                 self.av(self.view_drip_email),
-                name='view_drip_email'
-            )
-        )
+                name='view_drip_email'))
         return my_urls + urls
 admin.site.register(Drip, DripAdmin)
 
