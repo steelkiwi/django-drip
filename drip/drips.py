@@ -273,10 +273,14 @@ class MailgunBatchMessage(DripMessage):
         super(MailgunBatchMessage, self).__init__(drip_base=drip_base,
                                                   user=None)
 
+    @staticmethod
+    def map_variable(variable_name):
+        return '%recipient.' + variable_name + '%'
+
     @property
     def context(self):
         if not self._context:
-            self._context = Context({v: ('%' + v + '%')
+            self._context = Context({v: self.map_variable(v)
                                      for v in self.drip_base.variables})
         return self._context
 
@@ -294,9 +298,15 @@ class MailgunBatchMessage(DripMessage):
 
 class DripMailgun(DripBase):
     variables = ['username']
-    MAILGUN_API_KEY = settings.MAILGUN_API_KEY
-    MAILGUN_DOMAIN = settings.MAILGUN_DOMAIN
-    MAILGUN_BATCHSIZE = getattr(settings, 'MAILGUN_BATCHSIZE', 30)
+    MAILGUN_API_KEY = settings.MAILGUN['API_KEY']
+    MAILGUN_DOMAIN = settings.MAILGUN['DOMAIN']
+
+    MAILGUN_BATCHSIZE =\
+        settings.MAILGUN.get('BATCHSIZE', 1000)
+    MAILGUN_SEND_MESSAGE_ENDPOINT_TEMPLATE =\
+        settings.MAILGUN.get('SEND_MESSAGE_ENDPOINT_TEMPLATE', 'https://api.mailgun.net/v3/{0}/messages')
+    MAILGUN_YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY =\
+        settings.MAILGUN.get('YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY', False)
 
     def send(self):
         if not self.from_email:
@@ -313,4 +323,6 @@ class DripMailgun(DripBase):
             mailgun_api_key=self.MAILGUN_API_KEY,
             mailgun_domain=self.MAILGUN_DOMAIN,
             mailgun_batchsize=self.MAILGUN_BATCHSIZE,
+            url_template=self.MAILGUN_SEND_MESSAGE_ENDPOINT_TEMPLATE,
+            YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY=self.YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY,
         )

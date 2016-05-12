@@ -1,6 +1,10 @@
 import json
 from pprint import pprint
 
+import requests
+
+from django.core.validators import URLValidator
+
 
 def chunks(xs, size):
     for i in range(0, len(xs), size):
@@ -12,9 +16,7 @@ def email_is_valid(email):
 
 
 def mock_post(*args, **kwargs):
-    print('\n\n########### HERE IS NEW REQUEST ############')
-    pprint(args)
-    pprint(kwargs)
+    return (args, kwargs)
 
 
 def send_batch(
@@ -29,7 +31,11 @@ def send_batch(
         mailgun_domain,
         mailgun_batchsize,
         post=mock_post,
-        url_template='https://api.mailgun.net/v3/{0}/messages'):
+        url_template=None,
+        YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY=False):
+
+    if YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY:
+        post = requests.post
 
     # validations
     if not isinstance(recipient_variables_dict, dict):
@@ -38,10 +44,13 @@ def send_batch(
         if email_is_valid(email) and isinstance(variables, dict):
             continue
         raise TypeError('Should be dict as described in https://documentation.mailgun.com/user_manual.html#batch-sending')  # NOQA
+    URLValidator()(url_template)
 
     # common params
     url = url_template.format(mailgun_domain)
     auth = ('api', mailgun_api_key)
+
+    responses = []
 
     # chunking and sending
     for chunk in chunks(recipient_variables_dict.items(), mailgun_batchsize):
@@ -59,4 +68,8 @@ def send_batch(
         if template_plain:
             data['text'] = template_plain
 
-        post(url, auth=auth, data=data)
+        r = post(url, auth=auth, data=data)
+        responses.append(r)
+    if post is mock_post:
+        pprint(responses)
+    return responses
