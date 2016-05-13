@@ -1,6 +1,5 @@
 import operator
 import functools
-import json
 
 from django.conf import settings
 from django.db.models import Q
@@ -386,7 +385,3 @@ class DripMailgun(DripBase):
                             subject=m.subject)
         sent_drips = [create_sent_drip(user=user) for user in qs]
         SentDrip.objects.bulk_create(sent_drips)
-
-    @classmethod
-    def render_variables_list(cls):
-        return json.dumps(cls.variables)
