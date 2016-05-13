@@ -35,6 +35,11 @@ class DripEmailTag(models.Model):
 
 
 class Drip(models.Model):
+    TEMPLATE_BASE_CHOICES = (
+        ('with_base', 'Insert content of body field into default email base template'),
+        ('standalone', 'Use content of body as standalone template'),
+    )
+
     date = models.DateTimeField(auto_now_add=True)
     lastchanged = models.DateTimeField(auto_now=True)
 
@@ -67,9 +72,22 @@ class Drip(models.Model):
                 This is done to not overload Mailgun API with all available fields for every user
             </pre>
         '''.format(settings.MAILGUN.get('TEMPLATE_VARIABLES', []))))
-    message_class = models.CharField(max_length=120,
-                                     blank=True,
-                                     default='default')
+    template_base = models.CharField(
+        verbose_name='How to treat body content?',
+        max_length=20,
+        choices=TEMPLATE_BASE_CHOICES,
+        help_text='''
+            <pre>
+                If selected option is {1}
+                <strong>{0}</strong> will be used
+            </pre>
+        '''.format(settings.MAILGUN['EMAIL_BASE_HTML_TEMPLATE'], TEMPLATE_BASE_CHOICES[0][1]),
+    )
+    message_class = models.CharField(
+        max_length=120,
+        blank=True,
+        default='default',
+    )
 
     objects = DripQueryset.as_manager()
 
@@ -92,7 +110,12 @@ class Drip(models.Model):
     @property
     def drip_mailgun(self):
         from drip.drips import DripMailgun
-        return self.init_drip(klass=DripMailgun, tags_list=self.get_tags_list())
+        return self.init_drip(
+            klass=DripMailgun,
+            tags_list=self.get_tags_list(),
+            template_base=self.template_base,
+            base_template_html_path=settings.MAILGUN.get('EMAIL_BASE_HTML_TEMPLATE'),
+        )
 
     def __unicode__(self):
         return self.name

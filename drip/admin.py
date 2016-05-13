@@ -25,7 +25,11 @@ class DripEmailTagInline(admin.TabularInline):
 
 class DripForm(forms.ModelForm):
     message_class = forms.ChoiceField(
-        choices=((k, '%s (%s)' % (k, v)) for k, v in configured_message_classes().items())
+        choices=((k, '%s (%s)' % (k, v)) for k, v in configured_message_classes().items()),
+        help_text='''
+            This options has power ONLY for default SMPT email sending.
+            For using Mailgun API it is useless
+        ''',
     )
 
     class Meta:
