@@ -270,11 +270,14 @@ class DripBase(object):
 class MailgunBatchMessage(DripMessage):
 
     def __init__(self, drip_base):
-        super(MailgunBatchMessage, self).__init__(drip_base=drip_base,
-                                                  user=None)
+        # not that user is None
+        super(MailgunBatchMessage, self).__init__(drip_base=drip_base, user=None)
 
     @staticmethod
     def map_variable(variable_name):
+        """ Default method to render mailgun template variable
+        Override with settings.MAILGUN['VARIABLE_GENERATION_FUNCTION']
+        """
         return '%recipient.' + variable_name + '%'
 
     @property
@@ -284,7 +287,7 @@ class MailgunBatchMessage(DripMessage):
         """
         f = self.drip_base.MAILGUN_VARIABLE_GENERATION_FUNCTION or self.map_variable
         if not self._context:
-            self._context = Context({v: f(v) for v in self.drip_base.variables})
+            self._context = Context({'user': {v: f(v) for v in self.drip_base.variables}})
         return self._context
 
     def mailgun_variables_for_user(self, user, strict=True):
@@ -322,12 +325,9 @@ class MailgunBatchMessage(DripMessage):
                                     for u in qs if u.email}
         return recipient_variables_dict
 
-    def get_var_text(self, user):
-        return 'This is text from message instance'
-
 
 class DripMailgun(DripBase):
-    variables = ('full_name', 'text')
+    variables = ('full_name',)
 
     MAILGUN_SECRET_API_KEY = settings.MAILGUN['SECRET_API_KEY']
     MAILGUN_DOMAIN = settings.MAILGUN['DOMAIN']
@@ -353,6 +353,8 @@ class DripMailgun(DripBase):
             self.from_email = getattr(settings, 'DRIP_FROM_EMAIL', settings.DEFAULT_FROM_EMAIL)
         m = self.get_message()
 
+        qs = self.get_queryset()
+
         mailgun.send_batch(
             subject=m.subject,
             template_html=m.body,
@@ -361,6 +363,7 @@ class DripMailgun(DripBase):
             # if email sending is serious, we dont want to raise errors
             # if variable not found
             recipient_variables_dict=m.get_variables(
+                qs=qs,
                 strict=not self.MAILGUN_YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY),
 
             from_email=m.from_,
@@ -370,3 +373,12 @@ class DripMailgun(DripBase):
             url_template=self.MAILGUN_SEND_MESSAGE_ENDPOINT_TEMPLATE,
             YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY=self.MAILGUN_YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY,
         )
+
+        def create_sent_drip(user):
+            return SentDrip(drip=self.drip_model,
+                            user=user,
+                            from_email=self.from_email,
+                            from_email_name=self.from_email_name,
+                            subject=m.subject)
+        sent_drips = [create_sent_drip(user=user) for user in qs]
+        SentDrip.objects.bulk_create(sent_drips)

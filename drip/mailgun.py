@@ -66,7 +66,7 @@ def send_batch(
             'subject': subject,
             'from': from_email,
             'to': recipient_list,
-            'recipient-variables': json.dumps(recipient_variables)
+            'recipient-variables': json.dumps(recipient_variables, separators=(',', ':'))
         }
         if template_html:
             data['html'] = template_html
