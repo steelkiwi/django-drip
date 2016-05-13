@@ -2,6 +2,7 @@ import json
 
 from django import forms
 from django.contrib import admin
+from django.core import serializers
 
 from drip.models import Drip, SentDrip, QuerySetRule, DripSplitSubject
 from drip.drips import configured_message_classes, message_class_for
@@ -26,6 +27,16 @@ class DripForm(forms.ModelForm):
         exclude = []
 
 
+def send_with_mailgun(modeladmin, request, queryset):
+    queryset.filter(enabled=True).send(use_mailgun=True)
+send_with_mailgun.short_description = "Send using Mailgun API(recommended)"
+
+
+def send_default(modeladmin, request, queryset):
+    queryset.filter(enabled=True).send(use_mailgun=False)
+send_default.short_description = "Send using current SMPT settings"
+
+
 class DripAdmin(admin.ModelAdmin):
     list_display = ('name', 'enabled', 'message_class')
     inlines = [
@@ -33,6 +44,7 @@ class DripAdmin(admin.ModelAdmin):
         DripSplitSubjectInline,
     ]
     form = DripForm
+    actions = [send_with_mailgun, send_default]
 
     def av(self, view):
         return self.admin_site.admin_view(view)
