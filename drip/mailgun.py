@@ -3,7 +3,7 @@ from pprint import pprint
 
 import requests
 
-from django.core.validators import URLValidator
+from django.core.validators import URLValidator, EmailValidator
 
 
 def chunks(xs, size):
@@ -11,8 +11,12 @@ def chunks(xs, size):
         yield xs[i:i+size]
 
 
-def email_is_valid(email):
-    return '.' in email and '@' in email
+def validate_email(email):
+    EmailValidator()(email)
+
+
+def validate_url(url):
+    URLValidator()(url)
 
 
 def mock_post(*args, **kwargs):
@@ -41,10 +45,11 @@ def send_batch(
     if not isinstance(recipient_variables_dict, dict):
         raise TypeError('Should be dict as described in https://documentation.mailgun.com/user_manual.html#batch-sending')  # NOQA
     for email, variables in recipient_variables_dict.items():
-        if email_is_valid(email) and isinstance(variables, dict):
+        validate_email(email)
+        if isinstance(variables, dict):
             continue
         raise TypeError('Should be dict as described in https://documentation.mailgun.com/user_manual.html#batch-sending')  # NOQA
-    URLValidator()(url_template)
+    validate_url(url_template)
 
     # common params
     url = url_template.format(mailgun_domain)
