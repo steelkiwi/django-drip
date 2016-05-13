@@ -19,6 +19,21 @@ class DripSplitSubject(models.Model):
     enabled = models.BooleanField(default=True)
 
 
+class DripEmailTag(models.Model):
+    drip = models.ForeignKey('Drip', related_name='tags')
+    tag = models.CharField(
+        max_length=128,
+        help_text='Tags are case insensitive and should be ascii only. Maximum tag length is 128 characters.')
+
+    def clean(self):
+        if self.tag.lower() != self.tag:
+            raise ValidationError('Tags are case insensitive. Please, specify lower case tag explicitly.')
+        try:
+            self.tag.encode('ascii')
+        except UnicodeEncodeError:
+            raise ValidationError('Tags should be ascii only.')
+
+
 class Drip(models.Model):
     date = models.DateTimeField(auto_now_add=True)
     lastchanged = models.DateTimeField(auto_now=True)
@@ -43,21 +58,30 @@ class Drip(models.Model):
     body_html_template = models.TextField(
         null=True,
         blank=True,
-        help_text='You will have settings and user in the context.')
+        help_text=('''
+            <pre>
+                <strong>For default drip smpt</strong>: You will have settings and user in the context.
+                <strong>For Mailgun API</strong>: You will have user variables, specified in settings.MAILGUN['TEMPLATE_VARIABLES'].
+                They should be used as {{{{ user.full_name }}}} for `full_name`
+                For now these are: {0}
+                This is done to not overload Mailgun API with all available fields for every user
+            </pre>
+        '''.format(settings.MAILGUN.get('TEMPLATE_VARIABLES', []))))
     message_class = models.CharField(max_length=120,
                                      blank=True,
                                      default='default')
 
     objects = DripQueryset.as_manager()
 
-    def init_drip(self, klass):
+    def init_drip(self, klass, **kwargs):
         drip = klass(
             drip_model=self,
             name=self.name,
             from_email=self.from_email if self.from_email else None,
             from_email_name=self.from_email_name if self.from_email_name else None,
             subject_template=self.subject_template if self.subject_template else None,
-            body_template=self.body_html_template if self.body_html_template else None)
+            body_template=self.body_html_template if self.body_html_template else None,
+            **kwargs)
         return drip
 
     @property
@@ -68,7 +92,7 @@ class Drip(models.Model):
     @property
     def drip_mailgun(self):
         from drip.drips import DripMailgun
-        return self.init_drip(klass=DripMailgun)
+        return self.init_drip(klass=DripMailgun, tags_list=self.get_tags_list())
 
     def __unicode__(self):
         return self.name
@@ -86,6 +110,11 @@ class Drip(models.Model):
     def choose_split_test_subject(self):
         random_subject = self.get_split_test_subjects.order_by('?')[0]
         return random_subject.subject
+
+    def get_tags_list(self):
+        tags_max_count = settings.MAILGUN.get('MAX_TAGS_COUNT', 3)
+        tags = list(self.tags.values_list('tag', flat=True))[:tags_max_count]
+        return tags
 
 
 class SentDrip(models.Model):

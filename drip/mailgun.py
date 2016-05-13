@@ -30,6 +30,8 @@ def send_batch(
         template_plain,
         recipient_variables_dict,
         from_email,
+        # VVV meta data VVV
+        tags_list,
         # VVV mailgun setup VVV
         mailgun_api_key,
         mailgun_domain,
@@ -72,6 +74,8 @@ def send_batch(
             data['html'] = template_html
         if template_plain:
             data['text'] = template_plain
+        if tags_list:
+            data['o:tag'] = tags_list
 
         r = post(url, auth=auth, data=data)
         responses.append(r)
