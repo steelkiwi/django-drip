@@ -279,26 +279,57 @@ class MailgunBatchMessage(DripMessage):
 
     @property
     def context(self):
+        """ Renders dict of type {'some_var': '%recipient.some_var%'} to be inserted into template
+        Function for generating values is overridable by settings.MAILGUN['VARIABLE_GENERATION_FUNCTION']
+        """
+        f = self.drip_base.MAILGUN_VARIABLE_GENERATION_FUNCTION or self.map_variable
         if not self._context:
-            self._context = Context({v: self.map_variable(v)
-                                     for v in self.drip_base.variables})
+            self._context = Context({v: f(v) for v in self.drip_base.variables})
         return self._context
 
-    @classmethod
-    def mailgun_variables_for_user(cls, user):
-        return {'username': user.full_name}
+    def mailgun_variables_for_user(self, user, strict=True):
+        """ Generates dict of type {'some_var': 42} for `user`.
+        Mailgun will substitute these variables in place of %recipient.some_var%
+        """
 
-    @classmethod
-    def get_variables(cls, qs):
-        recipient_variables_dict = {u.email: cls.mailgun_variables_for_user(u)
-                                    for u in qs
-                                    if u.email}
+        def get_value(v):
+            """ Get value of `v` variable for user given."""
+            # try to get attribute from user
+            obj = getattr(user, v, None)
+            # if no, search for corresponding method in MailgunBatchMessage
+            if not obj:
+                obj = getattr(self, 'get_var_' + v, None)
+                if obj:
+                    obj = functools.partial(obj, user)
+
+                # is there is no function to get var value raise or return empty string
+                else:
+                    if strict:
+                        raise ValueError('There is no way to get `{0}` from user.'
+                                         'user.{0} and MailgunBatchMessage.get_var_{0} tried'.format(v))
+                    return ''
+
+            return obj() if callable(obj) else obj
+
+        vars = {v: get_value(v) for v in self.drip_base.variables}
+        return vars
+
+    def get_variables(self, qs=None, strict=True):
+        """ Generates dict of type {<email>: <template variables>} for
+        queryset of recipients"""
+        qs = qs or self.drip_base.get_queryset()
+        recipient_variables_dict = {u.email: self.mailgun_variables_for_user(u, strict)
+                                    for u in qs if u.email}
         return recipient_variables_dict
+
+    def get_var_text(self, user):
+        return 'This is text from message instance'
 
 
 class DripMailgun(DripBase):
-    variables = ['username']
-    MAILGUN_API_KEY = settings.MAILGUN['API_KEY']
+    variables = ('full_name', 'text')
+
+    MAILGUN_SECRET_API_KEY = settings.MAILGUN['SECRET_API_KEY']
     MAILGUN_DOMAIN = settings.MAILGUN['DOMAIN']
 
     MAILGUN_BATCHSIZE =\
@@ -308,21 +339,34 @@ class DripMailgun(DripBase):
     MAILGUN_YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY =\
         settings.MAILGUN.get('YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY', False)
 
+    def __init__(self, *args, **kwargs):
+        super(DripMailgun, self).__init__(*args, **kwargs)
+        self.MAILGUN_VARIABLE_GENERATION_FUNCTION =\
+            settings.MAILGUN.get('VARIABLE_GENERATION_FUNCTION', None)
+
+    def get_message(self):
+        m = MailgunBatchMessage(self)
+        return m
+
     def send(self):
         if not self.from_email:
-            self.from_email = getattr(settings, 'DRIP_FROM_EMAIL',
-                                      settings.DEFAULT_FROM_EMAIL)
-        m = MailgunBatchMessage(self)
+            self.from_email = getattr(settings, 'DRIP_FROM_EMAIL', settings.DEFAULT_FROM_EMAIL)
+        m = self.get_message()
 
         mailgun.send_batch(
             subject=m.subject,
             template_html=m.body,
             template_plain=m.plain,
-            recipient_variables_dict=m.get_variables(self.get_queryset()),
+
+            # if email sending is serious, we dont want to raise errors
+            # if variable not found
+            recipient_variables_dict=m.get_variables(
+                strict=not self.MAILGUN_YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY),
+
             from_email=m.from_,
-            mailgun_api_key=self.MAILGUN_API_KEY,
+            mailgun_api_key=self.MAILGUN_SECRET_API_KEY,
             mailgun_domain=self.MAILGUN_DOMAIN,
             mailgun_batchsize=self.MAILGUN_BATCHSIZE,
             url_template=self.MAILGUN_SEND_MESSAGE_ENDPOINT_TEMPLATE,
-            YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY=self.YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY,
+            YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY=self.MAILGUN_YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY,
         )
