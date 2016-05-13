@@ -2,9 +2,9 @@ import json
 
 from django import forms
 from django.contrib import admin
-from django.core import serializers
+from django.conf import settings
 
-from drip.models import Drip, SentDrip, QuerySetRule, DripSplitSubject
+from drip.models import Drip, SentDrip, QuerySetRule, DripSplitSubject, DripEmailTag
 from drip.drips import configured_message_classes, message_class_for
 from drip.utils import get_user_model
 
@@ -15,6 +15,12 @@ class DripSplitSubjectInline(admin.TabularInline):
 
 class QuerySetRuleInline(admin.TabularInline):
     model = QuerySetRule
+
+
+class DripEmailTagInline(admin.TabularInline):
+    model = DripEmailTag
+    extra = 1
+    max_num = settings.MAILGUN.get('MAX_TAGS_COUNT', 3)
 
 
 class DripForm(forms.ModelForm):
@@ -29,7 +35,7 @@ class DripForm(forms.ModelForm):
 
 def send_with_mailgun(modeladmin, request, queryset):
     queryset.filter(enabled=True).send(use_mailgun=True)
-send_with_mailgun.short_description = "Send using Mailgun API(recommended)"
+send_with_mailgun.short_description = "Send using Mailgun API (recommended)"
 
 
 def send_default(modeladmin, request, queryset):
@@ -40,8 +46,8 @@ send_default.short_description = "Send using current SMPT settings"
 class DripAdmin(admin.ModelAdmin):
     list_display = ('name', 'enabled', 'message_class')
     inlines = [
+        DripEmailTagInline,
         QuerySetRuleInline,
-        DripSplitSubjectInline,
     ]
     form = DripForm
     actions = [send_with_mailgun, send_default]

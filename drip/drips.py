@@ -1,5 +1,6 @@
 import operator
 import functools
+import json
 
 from django.conf import settings
 from django.db.models import Q
@@ -327,7 +328,7 @@ class MailgunBatchMessage(DripMessage):
 
 
 class DripMailgun(DripBase):
-    variables = ('full_name',)
+    variables = settings.MAILGUN.get('TEMPLATE_VARIABLES', ())
 
     MAILGUN_SECRET_API_KEY = settings.MAILGUN['SECRET_API_KEY']
     MAILGUN_DOMAIN = settings.MAILGUN['DOMAIN']
@@ -340,7 +341,9 @@ class DripMailgun(DripBase):
         settings.MAILGUN.get('YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY', False)
 
     def __init__(self, *args, **kwargs):
+        self.tags_list = kwargs.pop('tags_list', [])
         super(DripMailgun, self).__init__(*args, **kwargs)
+
         self.MAILGUN_VARIABLE_GENERATION_FUNCTION =\
             settings.MAILGUN.get('VARIABLE_GENERATION_FUNCTION', None)
 
@@ -367,6 +370,7 @@ class DripMailgun(DripBase):
                 strict=not self.MAILGUN_YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY),
 
             from_email=m.from_,
+            tags_list=self.tags_list,
             mailgun_api_key=self.MAILGUN_SECRET_API_KEY,
             mailgun_domain=self.MAILGUN_DOMAIN,
             mailgun_batchsize=self.MAILGUN_BATCHSIZE,
@@ -382,3 +386,7 @@ class DripMailgun(DripBase):
                             subject=m.subject)
         sent_drips = [create_sent_drip(user=user) for user in qs]
         SentDrip.objects.bulk_create(sent_drips)
+
+    @classmethod
+    def render_variables_list(cls):
+        return json.dumps(cls.variables)
