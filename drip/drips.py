@@ -326,6 +326,23 @@ class MailgunBatchMessage(DripMessage):
         return recipient_variables_dict
 
 
+class MailgunBatchMessageWithBaseTemplate(MailgunBatchMessage):
+
+    def __init__(self, *args, **kwargs):
+        self.base_template_html_path = kwargs.pop('base_template_html_path')
+        super(MailgunBatchMessageWithBaseTemplate, self).__init__(*args, **kwargs)
+
+    @property
+    def body(self):
+        if not self._body:
+            body_template = (
+                '{{% extends "{0}" %}}  '.format(self.base_template_html_path) +
+                self.drip_base.body_template
+            )
+            self._body = Template(body_template).render(self.context)
+        return self._body
+
+
 class DripMailgun(DripBase):
     variables = settings.MAILGUN.get('TEMPLATE_VARIABLES', ())
 
@@ -341,13 +358,23 @@ class DripMailgun(DripBase):
 
     def __init__(self, *args, **kwargs):
         self.tags_list = kwargs.pop('tags_list', [])
+        self.template_base = kwargs.pop('template_base')
+        self.base_template_html_path = kwargs.pop('base_template_html_path')
         super(DripMailgun, self).__init__(*args, **kwargs)
 
         self.MAILGUN_VARIABLE_GENERATION_FUNCTION =\
             settings.MAILGUN.get('VARIABLE_GENERATION_FUNCTION', None)
 
     def get_message(self):
-        m = MailgunBatchMessage(self)
+        if self.template_base == 'with_base':
+            m = MailgunBatchMessageWithBaseTemplate(
+                self,
+                base_template_html_path=self.base_template_html_path)
+        elif self.template_base == 'standalone':
+            m = MailgunBatchMessage(self)
+        else:
+            raise ValueError('template_base should be one of {0}'
+                             .format(zip(*self.drip_model.TEMPLATE_BASE_CHOICES)[0]))
         return m
 
     def send(self):
