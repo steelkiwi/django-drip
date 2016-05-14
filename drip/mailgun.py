@@ -68,7 +68,8 @@ def send_batch(
             'subject': subject,
             'from': from_email,
             'to': recipient_list,
-            'recipient-variables': json.dumps(recipient_variables, separators=(',', ':'))
+            'recipient-variables': json.dumps(recipient_variables, separators=(',', ':')),
+            'o:testmode': True,
         }
         if template_html:
             data['html'] = template_html
@@ -76,8 +77,8 @@ def send_batch(
             data['text'] = template_plain
         if tags_list:
             data['o:tag'] = tags_list
-        if not YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY:
-            data['o:testmode'] = True
+        if YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY:
+            data['o:testmode'] = False
 
         r = post(url, auth=auth, data=data)
         responses.append(r)
