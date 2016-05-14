@@ -76,6 +76,8 @@ def send_batch(
             data['text'] = template_plain
         if tags_list:
             data['o:tag'] = tags_list
+        if not YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY:
+            data['o:testmode'] = True
 
         r = post(url, auth=auth, data=data)
         responses.append(r)
