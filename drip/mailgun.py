@@ -36,12 +36,9 @@ def send_batch(
         mailgun_api_key,
         mailgun_domain,
         mailgun_batchsize,
-        post=mock_post,
+        post=requests.post,
         url_template=None,
         YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY=False):
-
-    if YES_I_WANT_TO_SEND_MAILGUN_EMAIL_SERIOUSLY:
-        post = requests.post
 
     # validations
     if not isinstance(recipient_variables_dict, dict):
