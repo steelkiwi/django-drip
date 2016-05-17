@@ -115,7 +115,12 @@ class Drip(models.Model):
             tags_list=self.get_tags_list(),
             template_base=self.template_base,
             base_template_html_path=settings.MAILGUN.get('EMAIL_BASE_HTML_TEMPLATE'),
+            drip_instance=self,
         )
+
+    def get_blog_entries_for_newsletter(self, count=5):
+        from photoblog.blog_entries.models import BlogEntry
+        return BlogEntry.objects.order_by('-created')[:5]
 
     def __unicode__(self):
         return self.name
