@@ -287,8 +287,9 @@ class MailgunBatchMessage(DripMessage):
         """
         f = self.drip_base.MAILGUN_VARIABLE_GENERATION_FUNCTION or self.map_variable
         if not self._context:
-            self._context = Context({'user': {v: f(v) for v in self.drip_base.variables}})
-            self._context['blog_entry'] = self.drip_base.drip_instance.get_blog_entries_for_newsletter()
+            ctx = {'user': {v: f(v) for v in self.drip_base.variables}}
+            ctx.update(self.drip_base.drip_instance.get_extra_context())
+            self._context = Context(ctx)
         return self._context
 
     def mailgun_variables_for_user(self, user, strict=True):

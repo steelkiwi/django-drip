@@ -122,6 +122,11 @@ class Drip(models.Model):
         from photoblog.blog_entries.models import BlogEntry
         return BlogEntry.objects.order_by('-created')[:5]
 
+    def get_extra_context(self):
+        ctx = {}
+        ctx['blog_entries'] = self.drip_base.drip_instance.get_blog_entries_for_newsletter()
+        return ctx
+
     def __unicode__(self):
         return self.name
 
