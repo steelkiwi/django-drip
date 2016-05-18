@@ -55,6 +55,7 @@ class DripAdmin(admin.ModelAdmin):
     ]
     form = DripForm
     actions = [send_with_mailgun, send_default]
+    filter_horizontal = ['blog_entries']
 
     def av(self, view):
         return self.admin_site.admin_view(view)

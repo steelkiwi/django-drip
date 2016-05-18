@@ -89,6 +89,11 @@ class Drip(models.Model):
         default='default',
     )
 
+    blog_entries = models.ManyToManyField(
+        'blog_entries.BlogEntry',
+        related_name='drips',
+    )
+
     objects = DripQueryset.as_manager()
 
     def init_drip(self, klass, **kwargs):
@@ -119,12 +124,11 @@ class Drip(models.Model):
         )
 
     def get_blog_entries_for_newsletter(self, count=5):
-        from photoblog.blog_entries.models import BlogEntry
-        return BlogEntry.objects.order_by('-created')[:5]
+        return self.blog_entries.all()
 
     def get_extra_context(self):
         ctx = {}
-        ctx['blog_entries'] = self.drip_base.drip_instance.get_blog_entries_for_newsletter()
+        ctx['blog_entries'] = self.get_blog_entries_for_newsletter()
         return ctx
 
     def __unicode__(self):
