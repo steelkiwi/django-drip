@@ -3,6 +3,9 @@ import json
 from django import forms
 from django.contrib import admin
 from django.conf import settings
+from django.template.response import TemplateResponse
+from django.contrib import messages
+from django.utils.translation import ugettext as _
 
 from drip.models import Drip, SentDrip, QuerySetRule, DripSplitSubject, DripEmailTag
 from drip.drips import configured_message_classes, message_class_for
@@ -38,7 +41,16 @@ class DripForm(forms.ModelForm):
 
 
 def send_with_mailgun(modeladmin, request, queryset):
-    queryset.filter(enabled=True).send(use_mailgun=True)
+    import ipdb; ipdb.set_trace()
+    if request.POST.get('post'):
+        queryset.filter(enabled=True).send(use_mailgun=True)
+        modeladmin.message_user(request, _('Email was added to Mailgun queue'), level=messages.SUCCESS)
+    else:
+        context = {
+            'drips': queryset.filter(enabled=True),
+            'back_uri': request.get_full_path(),
+        }
+        return TemplateResponse(request, 'admin/drip/mailgun_send_confirmation.html', context)
 send_with_mailgun.short_description = "Send using Mailgun API (recommended)"
 
 

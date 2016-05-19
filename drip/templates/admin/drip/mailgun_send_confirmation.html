@@ -1,0 +1,17 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+
+{% block content %}
+<form action="" method="post">
+{% for drip in drips %}
+    <h4>{{ drip.name }} - {{ drip.drip_mailgun.get_queryset.count }} user(s) will receive this email</h4>
+{% endfor %}
+    {% csrf_token %}
+    {% trans 'Please, confirm:' %}
+    <input type="hidden" name="action" value="admin_action" />
+    <input type="hidden" name="post" value="yes" />
+    <input type="submit" value="{% trans 'Send' %}">
+    <a href="{{ back_uri }}">{% trans 'Cancel' %}</a>
+</form>
+{% endblock content %}
